@@ -4,11 +4,8 @@ Rust SDK for building Bomberman bots that connect to a Bombahead game server ove
 
 ## Installation
 
-Add this to your `Cargo.toml`:
-
-```toml
-[dependencies]
-bombahead-rs = { path = "../path/to/bombahead-rs" } # Or whatever the registry path becomes
+```bash
+cargo add bombahead-rs
 ```
 
 ## Quick Start
