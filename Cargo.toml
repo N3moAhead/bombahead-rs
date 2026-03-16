@@ -1,6 +1,6 @@
 [package]
 name = "bombahead-rs"
-version = "0.1.0"
+version = "0.1.1"
 description = "Rust SDK for building Bomberman bots that connect to a Bombahead game server over WebSockets."
 edition = "2024"
 license = "MIT"

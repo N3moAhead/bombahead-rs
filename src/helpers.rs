@@ -23,7 +23,7 @@ impl<'a> GameHelpers<'a> {
         }
 
         let cell = self.state.field.cell_at(pos);
-        if cell == CellType::Wall || cell == CellType::Box {
+        if cell != CellType::Air {
             return false;
         }
 
@@ -67,17 +67,44 @@ impl<'a> GameHelpers<'a> {
             return Action::DoNothing;
         }
 
-        let prev = self.bfs(start, |pos| pos == target, false);
-        if prev.is_empty() {
-            return Action::DoNothing;
+        let mut queue = VecDeque::new();
+        queue.push_back(*target);
+        let mut visited = HashSet::new();
+        visited.insert(*target);
+
+        while let Some(cur) = queue.pop_front() {
+            let candidates = [
+                Position {
+                    x: cur.x,
+                    y: cur.y - 1,
+                },
+                Position {
+                    x: cur.x + 1,
+                    y: cur.y,
+                },
+                Position {
+                    x: cur.x,
+                    y: cur.y + 1,
+                },
+                Position {
+                    x: cur.x - 1,
+                    y: cur.y,
+                },
+            ];
+
+            for next in candidates {
+                if next == *start {
+                    return Self::action_from_step(start, &cur);
+                }
+
+                if self.is_walkable(&next) && !visited.contains(&next) {
+                    visited.insert(next);
+                    queue.push_back(next);
+                }
+            }
         }
 
-        let path = Self::rebuild_path(start, target, &prev);
-        if path.len() < 2 {
-            return Action::DoNothing;
-        }
-
-        Self::action_from_step(&path[0], &path[1])
+        Action::DoNothing
     }
 
     pub fn is_safe(&self, pos: &Position) -> bool {
@@ -230,25 +257,6 @@ impl<'a> GameHelpers<'a> {
         HashMap::new()
     }
 
-    fn rebuild_path(
-        start: &Position,
-        target: &Position,
-        prev: &HashMap<Position, Position>,
-    ) -> Vec<Position> {
-        let mut path = vec![*target];
-        let mut cur = *target;
-        while cur != *start {
-            if let Some(&p) = prev.get(&cur) {
-                cur = p;
-                path.push(cur);
-            } else {
-                return vec![];
-            }
-        }
-        path.reverse();
-        path
-    }
-
     fn action_from_step(from: &Position, to: &Position) -> Action {
         if to.x == from.x && to.y == from.y - 1 {
             Action::MoveUp
@@ -265,41 +273,10 @@ impl<'a> GameHelpers<'a> {
 
     fn compute_danger_positions(&self) -> HashSet<Position> {
         let mut danger = HashSet::new();
-        let mut bomb_index = HashMap::new();
-        for (i, b) in self.state.bombs.iter().enumerate() {
-            bomb_index.insert(b.pos, i);
-        }
 
-        let mut triggered = vec![false; self.state.bombs.len()];
-        let mut queue = VecDeque::new();
-
-        for e in &self.state.explosions {
-            danger.insert(*e);
-            if let Some(&idx) = bomb_index.get(e) {
-                if !triggered[idx] {
-                    triggered[idx] = true;
-                    queue.push_back(idx);
-                }
-            }
-        }
-
-        for (i, b) in self.state.bombs.iter().enumerate() {
-            if b.fuse <= 1 && !triggered[i] {
-                triggered[i] = true;
-                queue.push_back(i);
-            }
-        }
-
-        while let Some(idx) = queue.pop_front() {
-            let blast = self.blast_cells(&self.state.bombs[idx].pos);
-            for cell in blast {
+        for b in &self.state.bombs {
+            for cell in self.blast_cells(&b.pos) {
                 danger.insert(cell);
-                if let Some(&hit_idx) = bomb_index.get(&cell) {
-                    if !triggered[hit_idx] {
-                        triggered[hit_idx] = true;
-                        queue.push_back(hit_idx);
-                    }
-                }
             }
         }
 
